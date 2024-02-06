@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 ################################################################################
 #                    ____            _                  _                      #
 #                   |  _ \ _ __ ___ | |_ ___   ___ ___ | |                     #
@@ -67,8 +67,8 @@ import specs
 # CLASS DEFINITIONS
 class ProtocolException(Exception):
   """
-    This class represents exceptions raised by the Protocol class
-    """
+  This class represents exceptions raised by the Protocol class
+  """
 
   def __init__(self, errmsg):
     self.errmsg = errmsg
@@ -79,16 +79,16 @@ class ProtocolException(Exception):
 
 class Protocol():
   """
-    This class represents a network protocol header. Objects are constructed by
-    passing a textual protocol specification. Once that is done, instances
-    can be printed by converting them to a str type.
-    """
+  This class represents a network protocol header. Objects are constructed by
+  passing a textual protocol specification. Once that is done, instances
+  can be printed by converting them to a str type.
+  """
 
   def __init__(self, spec):
     """
-        Class constructor.
-        @param spec is the textual specification that describes the protocol.
-        """
+    Class constructor.
+    @param spec is the textual specification that describes the protocol.
+    """
     self.hdr_char_start = "+"  # Character for start of the border line
     self.hdr_char_end = "+"  # Character for end of the border line
     self.hdr_char_fill_odd = "+"  # Fill character for border odd positions
@@ -97,19 +97,20 @@ class Protocol():
     self.bits_per_line = 32  # Number of bits per line
     self.do_print_top_tens = True  # True: print top numbers for bit tens
     self.do_print_top_units = True  # True: print top numbers for bit units
+    self.descending = True  # True: print bit numbers in descending order
     self.field_list = []  # Header fields to be printed out
     self.parse_spec(
         spec)  # Parse the received spec and populate self.field_list
 
   def parse_spec(self, spec):
     """
-        Parses a textual protocol spec and stores the relevant internal state
-        so such spec can be later converted to a nice ASCII diagram.
-        @return the list of protocol fields, as a dictionary containing
-        keys 'len' and 'text'. The list is returned for completeness but no
-        caller is expected to store or use such list.
-        @raise ProtocolException in case the supplied spec is not valid
-        """
+    Parses a textual protocol spec and stores the relevant internal state
+    so such spec can be later converted to a nice ASCII diagram.
+    @return the list of protocol fields, as a dictionary containing
+    keys 'len' and 'text'. The list is returned for completeness but no
+    caller is expected to store or use such list.
+    @raise ProtocolException in case the supplied spec is not valid
+    """
     if "?" in spec:
       parts = spec.split("?")
       fields = parts[0]
@@ -158,6 +159,22 @@ class Protocol():
             else:
               raise ProtocolException(
                   "FATAL: Invalid value for 'numbers' option (%s)" % value)
+          elif var.lower() == "descending":
+            if value.lower() in ["0", "n", "no", "none", "false"]:
+              self.descending = False
+            elif value.lower() in ["1", "y", "yes", "none", "true"]:
+              self.descending = True
+            else:
+              raise ProtocolException(
+                  "FATAL: Invalid value for 'descending' option (%s)" % value)
+          elif var.lower() == "ascending":
+            if value.lower() in ["0", "n", "no", "none", "false"]:
+              self.descending = True
+            elif value.lower() in ["1", "y", "yes", "none", "true"]:
+              self.descending = False
+            else:
+              raise ProtocolException(
+                  "FATAL: Invalid value for 'ascending' option (%s)" % value)
           elif var.lower() in [
               "oddchar", "evenchar", "startchar", "endchar", "sepchar"
           ]:
@@ -185,34 +202,45 @@ class Protocol():
 
   def _get_top_numbers(self):
     """
-        @return a string representing the bit units and bit tens on top of the
-        protocol header. Note that a proper string is only returned if one or
-        both self.do_print_top_tens and self.do_print_top_units is True.
-        The returned string is not \n terminated, but it may contain a newline
-        character in the middle.
-        """
+    @return a string representing the bit units and bit tens on top of the
+    protocol header. Note that a proper string is only returned if one or
+    both self.do_print_top_tens and self.do_print_top_units is True.
+    The returned string is not \n terminated, but it may contain a newline
+    character in the middle.
+    """
     lines = ["", ""]
+    rng = list(range(0, self.bits_per_line))
+    if self.descending is True:
+      rng.reverse()
     if self.do_print_top_tens is True:
-      for i in range(0, self.bits_per_line):
-        if str(i)[-1:] == "0":
-          lines[0] += " %s" % str(i)[0]
+      for i in rng:
+        si = "%02d" % i
+        if self.descending is True:
+          if si[-1:] == "9" or i == self.bits_per_line - 1:
+            lines[0] += " %s" % si[0]
+          else:
+            lines[0] += "  "
         else:
-          lines[0] += "  "
+          if si[-1:] == "0":
+            lines[0] += " %s" % si[0]
+          else:
+            lines[0] += "  "
       lines[0] += "\n"
     if self.do_print_top_units is True:
-      for i in range(0, self.bits_per_line):
-        lines[1] += " %s" % str(i)[-1:]
+      for i in rng:
+        si = "%02d" % i
+        lines[1] += " %s" % si[-1:]
       #lines[1]+="\n"
     result = "".join(lines)
     return result if len(result) > 0 else None
 
   def _get_horizontal(self, width=None):
     """
-        @return the horizontal border line that separates field rows.
-        @param width controls how many field bits the line should cover. By
-        default, if no width is supplied, the line covers the hole length of
-        the header.
-        """
+    @return the horizontal border line that separates field rows.
+    @param width controls how many field bits the line should cover. By
+    default, if no width is supplied, the line covers the hole length of
+    the header.
+    """
     if width is None:
       width = self.bits_per_line
     if width <= 0:
@@ -225,18 +253,18 @@ class Protocol():
 
   def _get_separator(self, line_end=""):
     """
-        @return a string containing a protocol field separator. Returned string
-        is a single character and matches whatever is stored in self.hdr_char_sep
-        """
+    @return a string containing a protocol field separator. Returned string
+    is a single character and matches whatever is stored in self.hdr_char_sep
+    """
     return self.hdr_char_sep
 
   def _process_field_list(self):
     """
-        Processes the list of protocol fields that we got from the spec and turns
-        it into something that we can print easily (useful for cases when we have
-        protocol fields that span more than one line). This is just a helper
-        function to make __str__()'s life easier.
-        """
+    Processes the list of protocol fields that we got from the spec and turns
+    it into something that we can print easily (useful for cases when we have
+    protocol fields that span more than one line). This is just a helper
+    function to make __str__()'s life easier.
+    """
     new_fields = []
     bits_in_line = 0
     i = 0
@@ -298,13 +326,13 @@ class Protocol():
   # Convert to string
   def __str__(self):
     """
-        Converts the protocol specification stored in the object to a nice
-        ASCII diagram like the ones that appear in RFCs. Conversion supports
-        fields of any length, and supports field that span more than one
-        line in the diagram.
-        @return a string containing the ASCII representation of the protocol
-        header.
-        """
+    Converts the protocol specification stored in the object to a nice
+    ASCII diagram like the ones that appear in RFCs. Conversion supports
+    fields of any length, and supports field that span more than one
+    line in the diagram.
+    @return a string containing the ASCII representation of the protocol
+    header.
+    """
 
     # First of all, process our field list. This does some magic to make
     # the algorithm work for fields that span more than one line
@@ -318,6 +346,14 @@ class Protocol():
     # Print all protocol fields
     bits_in_line = 0
     current_line = ""
+
+    def add_fragment(s):
+      nonlocal current_line
+      if self.descending is True:
+        current_line = s + current_line
+      else:
+        current_line += s
+
     fields_done = 0
     p = -1
     while p < len(proto_fields) - 1:
@@ -342,10 +378,10 @@ class Protocol():
         # If this is the first thing we print on a line, add the
         # starting character
         if bits_in_line == 0:
-          current_line += self._get_separator()
+          add_fragment(self._get_separator())
 
         # Add the whole field
-        current_line += str.center(field_text, (field_len * 2) - 1)
+        add_fragment(str.center(field_text, (field_len * 2) - 1))
 
         # Update counters
         bits_in_line += field_len
@@ -353,7 +389,7 @@ class Protocol():
 
         # If this is the last character in the line, store the line
         if bits_in_line == self.bits_per_line:
-          current_line += self._get_separator()
+          add_fragment(self._get_separator())
           lines.append(current_line)
           current_line = ""
           bits_in_line = 0
@@ -390,8 +426,11 @@ class Protocol():
                                         (self.bits_per_line - field_len)))) - 1)
                 line_right = self._get_horizontal(self.bits_per_line -
                                                   proto_fields[p + 1]['len'])
-
-              lines.append(line_left + line_center + line_right)
+              add_fragment(line_left)
+              add_fragment(line_center)
+              add_fragment(line_right)
+              lines.append(current_line)
+              current_line = ""
             else:
               lines.append(self._get_horizontal())
           else:
@@ -400,12 +439,12 @@ class Protocol():
         # If this is not the last character of the line but we have no
         # more fields to print, wrap up
         elif fields_done == len(proto_fields):
-          current_line += self._get_separator()
+          add_fragment(self._get_separator())
           lines.append(current_line)
           lines.append(self._get_horizontal(bits_in_line))
         else:
           # Add the separator character
-          current_line += self.hdr_char_sep
+          add_fragment(self.hdr_char_sep)
 
       # We don't have enough space for the field on this line.
       else:
@@ -434,13 +473,17 @@ class Protocol():
               # This is the line where we need to print the field
               # text.
               if i == central_line:
-                lines.append(start_line +
-                             str.center(field_text, (self.bits_per_line * 2) -
-                                        1) + end_line)
+                add_fragment(start_line)
+                add_fragment(
+                    str.center(field_text, (self.bits_per_line * 2) - 1))
+                add_fragment(end_line)
               # This is a line we need to leave blank
               else:
-                lines.append(start_line +
-                             (" " * ((self.bits_per_line * 2) - 1)) + end_line)
+                add_fragment(start_line)
+                add_fragment(" " * ((self.bits_per_line * 2) - 1))
+                add_fragment(end_line)
+              lines.append(current_line)
+              current_line = ""
               # If we just added the last line, add a horizontal separator
               if i == lines_to_print - 1:
                 lines.append(self._get_horizontal())
@@ -459,14 +502,14 @@ class Protocol():
 
 class Main():
   """
-    This class does all the boring task of a command-line application. It parses
-    user input, displays usage, parses input files, etc.
-    """
+  This class does all the boring task of a command-line application. It parses
+  user input, displays usage, parses input files, etc.
+  """
 
   def __init__(self):
     """
-        Class constructor. Nothing fancy.
-        """
+    Class constructor. Nothing fancy.
+    """
     self.cmd_line_args = None  # Copy of the user argv
     self.protocols = []  # List of protocols to print out
     self.bits_per_line = None  # Number of bits per line to print
@@ -476,11 +519,12 @@ class Main():
     self.hdr_char_fill_odd = None  # Fill character for border odd positions
     self.hdr_char_fill_even = None  # Fill character for border even positions
     self.hdr_char_sep = None  # Field separator character
+    self.descending = True  # True: print bit numbers in descending order
 
   def display_help(self):
     """
-        Displays command-line usage help to standard output.
-        """
+    Displays command-line usage help to standard output.
+    """
     print("")
     print("%s v%s" % (APPLICATION_NAME, APPLICATION_VERSION))
     print(
@@ -499,38 +543,34 @@ class Main():
     print(" -b, --bits <n>      : Number of bits per line")
     print(" -f, --file          : Read specs from a text file")
     print(" -h, --help          : Displays this help information")
-    print(
-        " -n, --no-numbers    : Do not print bit numbers on top of the header")
+    print(" -n, --no-numbers    : Don't print bit numbers on top of the header")
+    print(" -a, --ascending     : Print bit numbers in ascending order")
+    print(" -d. --descending    : Print bit numbers in descending order")
     print(" -V, --version       : Displays current version")
-    print(
-        " --evenchar  <char>  : Character for the even positions of horizontal table borders"
-    )
-    print(
-        " --oddchar   <char>  : Character for the odd positions of horizontal table borders"
-    )
-    print(
-        " --startchar <char>  : Character that starts horizontal table borders")
-    print(" --endchar   <char>  : Character that ends horizontal table borders")
+    print(" --evenchar  <char>  : Even character of horizontal table borders")
+    print(" --oddchar   <char>  : Odd character of horizontal table borders")
+    print(" --startchar <char>  : Start character of horizontal table borders")
+    print(" --endchar   <char>  : End character of horizontal table borders")
     print(" --sepchar   <char>  : Character that separates protocol fields")
 
   def get_usage(self):
     """
-        @return a string containing application usage information
-        """
+    @return a string containing application usage information
+    """
     return "Usage: %s {<protocol> or <spec>} [OPTIONS]" % self.cmd_line_args[0]
 
   def display_usage(self):
     """
-        Prints usage information to standard output
-        """
+    Prints usage information to standard output
+    """
     print(self.get_usage())
 
   def parse_config_file(self, filename):
     """
-        This method parses the supplied configuration file and adds any protocols to our
-        list of protocols to print.
-        @return The number of protocols parsed
-        """
+    This method parses the supplied configuration file and adds any protocols to our
+    list of protocols to print.
+    @return The number of protocols parsed
+    """
 
     i = 0
     # Read the contents of the whole file
@@ -562,9 +602,9 @@ class Main():
 
   def parse_cmd_line_args(self, argv, is_config_file=False):
     """
-        Parses command-line arguments and stores any relevant information
-        internally
-        """
+    Parses command-line arguments and stores any relevant information
+    internally
+    """
 
     # Store a reference to command line args for later use.
     if is_config_file == False:
@@ -655,6 +695,10 @@ class Main():
           print("%s v%s" % (APPLICATION_NAME, APPLICATION_VERSION))
           sys.exit(0)
 
+        # Descending/Ascending
+        elif argv[i] in ["-d", "--descending", "-a", "--ascending"]:
+          self.descending = (argv[i] in ["-d", "--descending"])
+
         # Incorrect option supplied
         elif argv[i].startswith("-"):
           print("ERROR: Invalid option supplied (%s)" % argv[i])
@@ -712,9 +756,9 @@ class Main():
 
   def run(self):
     """
-        This is Protocol's 'core' method: parses command line argument and prints
-        any necessary protocol to standard output
-        """
+    This is Protocol's 'core' method: parses command line argument and prints
+    any necessary protocol to standard output
+    """
 
     # Parse command-line arguments
     code, err = self.parse_cmd_line_args(sys.argv)
@@ -746,6 +790,8 @@ class Main():
         self.protocols[i].hdr_char_fill_odd = self.hdr_char_fill_odd
       if self.hdr_char_sep is not None:
         self.protocols[i].hdr_char_sep = self.hdr_char_sep
+      if self.descending is not None:
+        self.protocols[i].descending = self.descending
 
       print(self.protocols[i])
       if len(self.protocols) > 1 and i != len(self.protocols) - 1:
@@ -755,8 +801,8 @@ class Main():
 # Main function
 def main():
   """
-    Main function. Runs the Protocol program.
-    """
+  Main function. Runs the Protocol program.
+  """
 
   # Instance our core class
   program = Main()
