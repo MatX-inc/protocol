@@ -208,31 +208,23 @@ class Protocol():
     The returned string is not \n terminated, but it may contain a newline
     character in the middle.
     """
-    lines = ["", ""]
-    rng = list(range(0, self.bits_per_line))
-    if self.descending is True:
-      rng.reverse()
-    if self.do_print_top_tens is True:
-      for i in rng:
-        si = "%02d" % i
-        if self.descending is True:
-          if si[-1:] == "9" or i == self.bits_per_line - 1:
-            lines[0] += " %s" % si[0]
-          else:
-            lines[0] += "  "
-        else:
-          if si[-1:] == "0":
-            lines[0] += " %s" % si[0]
-          else:
-            lines[0] += "  "
-      lines[0] += "\n"
-    if self.do_print_top_units is True:
-      for i in rng:
-        si = "%02d" % i
-        lines[1] += " %s" % si[-1:]
-      #lines[1]+="\n"
-    result = "".join(lines)
-    return result if len(result) > 0 else None
+    if not (self.do_print_top_tens or self.do_print_top_units):
+      return None
+    tens_line = ""
+    ones_line = ""
+    prev_tens = None
+    rng = range(0, self.bits_per_line)
+    if self.descending:
+      rng = reversed(rng)
+    for si in ["%02d" % i for i in rng]:
+      if si[0] != prev_tens:
+        tens_line += " %s" % si[0]
+      else:
+        tens_line += "  "
+      ones_line += " %s" % si[-1:]
+      prev_tens = si[0]
+    return ((tens_line + "\n" if self.do_print_top_tens else "") +
+            (ones_line + "\n" if self.do_print_top_units else ""))
 
   def _get_horizontal(self, width=None):
     """
@@ -349,7 +341,7 @@ class Protocol():
 
     def add_fragment(s):
       nonlocal current_line
-      if self.descending is True:
+      if self.descending:
         current_line = s + current_line
       else:
         current_line += s
@@ -401,7 +393,7 @@ class Protocol():
           # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               +
           # |                             field                             |
           # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-          if field_mf is True:
+          if field_mf:
             if proto_fields[p + 1]['len'] > self.bits_per_line - field_len:
 
               # Print some +-+-+ to cover the previous field
@@ -774,12 +766,8 @@ class Main():
       if self.bits_per_line is not None:
         self.protocols[i].bits_per_line = self.bits_per_line
       if self.skip_numbers is not None:
-        if self.skip_numbers is True:
-          self.protocols[i].do_print_top_tens = False
-          self.protocols[i].do_print_top_units = False
-        else:
-          self.protocols[i].do_print_top_tens = True
-          self.protocols[i].do_print_top_units = True
+        self.protocols[i].do_print_top_tens = not self.skip_numbers
+        self.protocols[i].do_print_top_units = not self.skip_numbers
       if self.hdr_char_end is not None:
         self.protocols[i].hdr_char_end = self.hdr_char_end
       if self.hdr_char_start is not None:
